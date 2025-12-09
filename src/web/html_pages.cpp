@@ -115,7 +115,7 @@ const char* LOGIN_HTML = R"rawliteral(
           const password = document.getElementById("password").value;
           const errorDiv = document.getElementById("error");
 
-          fetch("/api/login", {
+          fetch("api/login", {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body: "password=" + encodeURIComponent(password),
@@ -221,6 +221,21 @@ const char* DASHBOARD_HTML = R"rawliteral(
       .logout-btn:hover {
         background: #c82333;
       }
+
+      .back-btn {
+        margin-left: 50px;
+        background: #6c757d;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: bold;
+      }     
+      .back-btn:hover {
+        background: #5a6268;
+      }     
+
       .card {
         background: white;
         padding: 25px;
@@ -770,7 +785,7 @@ const char* DASHBOARD_HTML = R"rawliteral(
         btn.disabled = true;
         btn.textContent = "Starting...";
 
-        fetch("/api/pump/normal", { method: "POST" })
+        fetch("api/pump/normal", { method: "POST" })
           .then((response) => response.json())
           .then((data) => {
             if (data.success) {
@@ -795,7 +810,7 @@ const char* DASHBOARD_HTML = R"rawliteral(
         btn.disabled = true;
         btn.textContent = "Starting...";
 
-        fetch("/api/pump/extended", { method: "POST" })
+        fetch("api/pump/extended", { method: "POST" })
           .then((response) => response.json())
           .then((data) => {
             if (data.success) {
@@ -820,7 +835,7 @@ const char* DASHBOARD_HTML = R"rawliteral(
         btn.disabled = true;
         btn.textContent = "Stopping...";
 
-        fetch("/api/pump/stop", { method: "POST" })
+        fetch("api/pump/stop", { method: "POST" })
           .then((response) => response.json())
           .then((data) => {
             if (data.success) {
@@ -838,7 +853,7 @@ const char* DASHBOARD_HTML = R"rawliteral(
       }
 
       function loadVolumePerSecond() {
-        fetch("/api/pump-settings")
+        fetch("api/pump-settings")
           .then((response) => response.json())
           .then((data) => {
             if (data.success) {
@@ -889,7 +904,7 @@ const char* DASHBOARD_HTML = R"rawliteral(
         const formData = new FormData();
         formData.append("volume_per_second", volumeValue);
 
-        fetch("/api/pump-settings", {
+        fetch("api/pump-settings", {
           method: "POST",
           body: formData,
         })
@@ -922,7 +937,7 @@ const char* DASHBOARD_HTML = R"rawliteral(
       let pumpGlobalEnabled = true;
 
       function loadPumpGlobalState() {
-        fetch("/api/pump-toggle")
+        fetch("api/pump-toggle")
           .then((response) => response.json())
           .then((data) => {
             if (data.success) {
@@ -938,7 +953,7 @@ const char* DASHBOARD_HTML = R"rawliteral(
         btn.disabled = true;
         btn.textContent = "Processing...";
 
-        fetch("/api/pump-toggle", { method: "POST" })
+        fetch("api/pump-toggle", { method: "POST" })
           .then((response) => response.json())
           .then((data) => {
             if (data.success) {
@@ -1070,7 +1085,7 @@ const char* DASHBOARD_HTML = R"rawliteral(
       }
 
       function updateStatus() {
-        fetch("/api/status")
+        fetch("api/status")
           .then((response) => response.json())
           .then((data) => {
             updateSensorBadge("sensor1Badge", data.sensor1_active);
@@ -1144,7 +1159,7 @@ const char* DASHBOARD_HTML = R"rawliteral(
       }
 
       function logout() {
-        fetch("/api/logout", { method: "POST" }).then(() => {
+        fetch("api/logout", { method: "POST" }).then(() => {
           window.location.href = "/login";
         });
       }
@@ -1153,7 +1168,7 @@ const char* DASHBOARD_HTML = R"rawliteral(
       updateStatus();
 
       function loadStatistics() {
-        fetch("/api/get-statistics")
+        fetch("api/get-statistics")
           .then((response) => response.json())
           .then((data) => {
             if (data.success) {
@@ -1189,7 +1204,7 @@ const char* DASHBOARD_HTML = R"rawliteral(
         btn.disabled = true;
         btn.textContent = "Resetting...";
 
-        fetch("/api/reset-statistics", { method: "POST" })
+        fetch("api/reset-statistics", { method: "POST" })
           .then((response) => response.json())
           .then((data) => {
             if (data.success) {
@@ -1222,7 +1237,7 @@ const char* DASHBOARD_HTML = R"rawliteral(
       }
 
       function loadDailyVolume() {
-        fetch("/api/daily-volume")
+        fetch("api/daily-volume")
           .then((response) => response.json())
           .then((data) => {
             if (data.success) {
@@ -1249,7 +1264,7 @@ const char* DASHBOARD_HTML = R"rawliteral(
         btn.disabled = true;
         btn.textContent = "Resetting...";
 
-        fetch("/api/reset-daily-volume", { method: "POST" })
+        fetch("api/reset-daily-volume", { method: "POST" })
           .then((response) => response.json())
           .then((data) => {
             if (data.success) {
@@ -1271,6 +1286,23 @@ const char* DASHBOARD_HTML = R"rawliteral(
             btn.textContent = "Reset Daily Volume";
           });
       }
+
+              // Detect VPS proxy and change Logout to Back
+      (function() {
+        const localIPs = ['192.168.10.2', 'localhost', '127.0.0.1'];
+        const isProxied = !localIPs.includes(window.location.hostname);
+
+        if (isProxied) {
+          const logoutBtn = document.querySelector('.logout-btn');
+          if (logoutBtn) {
+            logoutBtn.textContent = 'Back';
+            logoutBtn.className = 'back-btn';
+            logoutBtn.onclick = function() {
+              window.location.href = '/dashboard';
+            };
+          }
+        }
+      })();
 
       setInterval(loadPumpGlobalState, 30000);
 

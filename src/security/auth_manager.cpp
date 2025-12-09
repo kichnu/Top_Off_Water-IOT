@@ -76,3 +76,21 @@ bool verifyPassword(const String& password) {
     }
     return valid;
 }
+
+// ============================================
+// TRUSTED PROXY IP - VPS reverse proxy
+// Requests from this IP bypass authentication
+// ============================================
+
+#include "../core/logging.h"
+
+// VPS WireGuard IP - requests from here are trusted
+const IPAddress TRUSTED_VPS_IP(10, 99, 0, 1);
+
+bool isTrustedProxyIP(IPAddress ip) {
+    if (ip == TRUSTED_VPS_IP) {
+        LOG_INFO("🔓 Trusted VPS proxy IP: %s", ip.toString().c_str());
+        return true;
+    }
+    return false;
+}

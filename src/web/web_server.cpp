@@ -4,6 +4,7 @@
 #include "../security/rate_limiter.h"
 #include "../security/auth_manager.h"
 #include "../core/logging.h"
+#include "../security/auth_manager.h"
 
 AsyncWebServer server(80);
 
@@ -40,6 +41,13 @@ void initWebServer() {
 
 bool checkAuthentication(AsyncWebServerRequest* request) {
     IPAddress clientIP = request->client()->remoteIP();
+
+    // ============================================
+    // TRUSTED PROXY - VPS bypass authentication
+    // ============================================
+    if (isTrustedProxyIP(clientIP)) {
+        return true;  // Skip all authentication for VPS
+    }
     
     // Check if IP is blocked
     if (isIPBlocked(clientIP)) {
@@ -73,3 +81,5 @@ bool checkAuthentication(AsyncWebServerRequest* request) {
     recordFailedAttempt(clientIP);
     return false;
 }
+
+
