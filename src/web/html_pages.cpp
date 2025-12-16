@@ -675,6 +675,7 @@ const char* DASHBOARD_HTML = R"rawliteral(
             border-radius: var(--radius-sm);
             padding: 16px;
             display: flex;
+            min-height: 245px;
             flex-direction: column;
             gap: 12px;
         }
@@ -913,8 +914,10 @@ const char* DASHBOARD_HTML = R"rawliteral(
                 <h2>Statistics</h2>
             </div>
 
+ 
+
             <div class="stats-columns">
-                <!-- Column 1: Load Statistics + errors -->
+                <!-- Column 1: Statistics (Load + Reset combined) -->
                 <div class="stat-column">
                     <button id="loadStatsBtn" class="btn btn-secondary btn-small" onclick="manualLoadStatistics()">Load Statistics</button>
                     <div class="stat-content">
@@ -931,22 +934,28 @@ const char* DASHBOARD_HTML = R"rawliteral(
                             <span class="stat-value" id="waterValue">—</span>
                         </div>
                     </div>
+                    <button id="resetStatsBtn" class="btn btn-secondary btn-small" onclick="resetStatistics()" style="margin-top: 8px;">Reset Statistics</button>
                 </div>
 
-                <!-- Column 2: Reset Statistics + last reset -->
+                <!-- Column 2: Available Volume -->
                 <div class="stat-column">
-                    <button id="resetStatsBtn" class="btn btn-secondary btn-small" onclick="resetStatistics()">Reset Statistics</button>
                     <div class="stat-content">
-                        <div class="stat-line">
-                            <span class="stat-label">Last Reset:</span>
-                            <span class="stat-value neutral" id="resetTime">—</span>
+                        <div class="volume-indicator">
+                            <div class="volume-bar">
+                                <div class="volume-bar-fill" id="availableBarFill"></div>
+                            </div>
+                            <div class="volume-text" id="availableText">0 ml / 10000 ml</div>
                         </div>
                     </div>
+                    <div class="input-group" style="margin-top: 8px;">
+                        <input type="number" id="availableVolumeInput" min="100" max="10000" step="100" placeholder="ml">
+                        <button class="btn btn-secondary btn-small" onclick="setAvailableVolume()">Set Available</button>
+                    </div>
+                    <button class="btn btn-secondary btn-small" onclick="refillAvailableVolume()" style="margin-top: 8px; width: 100%;">Refill Available</button>
                 </div>
 
-                <!-- Column 3: Reset Daily Volume + bar -->
+                <!-- Column 3: Daily Volume -->
                 <div class="stat-column">
-                    <button id="resetDailyVolumeBtn" class="btn btn-secondary btn-small" onclick="resetDailyVolume()">Reset Daily Volume</button>
                     <div class="stat-content">
                         <div class="volume-indicator">
                             <div class="volume-bar">
@@ -955,8 +964,16 @@ const char* DASHBOARD_HTML = R"rawliteral(
                             <div class="volume-text" id="volumeText">0 ml / 2000 ml</div>
                         </div>
                     </div>
+                    <div class="input-group" style="margin-top: 8px;">
+                        <input type="number" id="dailyLimitInput" min="100" max="10000" step="100" placeholder="ml">
+                        <button class="btn btn-secondary btn-small" onclick="setDailyLimit()">Set Daily Limit</button>
+                    </div>
+                    <button id="resetDailyVolumeBtn" class="btn btn-secondary btn-small" onclick="resetDailyVolume()" style="margin-top: 8px; width: 100%;">Reset Daily Volume</button>
                 </div>
             </div>
+
+
+
         </div>
 
         <!-- FOURTH CARD: Pump Setting -->
@@ -1404,7 +1421,7 @@ const char* DASHBOARD_HTML = R"rawliteral(
                         document.getElementById("gap1Value").textContent = data.gap1_fail_sum;
                         document.getElementById("gap2Value").textContent = data.gap2_fail_sum;
                         document.getElementById("waterValue").textContent = data.water_fail_sum;
-                        document.getElementById("resetTime").textContent = data.last_reset_formatted || "Unknown";
+                        // document.getElementById("resetTime").textContent = data.last_reset_formatted || "Unknown";
                     }
                 })
                 .catch((error) => {
@@ -1494,6 +1511,113 @@ const char* DASHBOARD_HTML = R"rawliteral(
                 });
         }
 
+
+        // ============================================
+        // AVAILABLE VOLUME FUNCTIONS
+        // ============================================
+        function loadAvailableVolume() {
+            fetch("api/available-volume")
+                .then((response) => response.json())
+                .then((data) => {
+                    if (data.success) {
+                        const current = data.current_ml;
+                        const max = data.max_ml;
+                        const percent = Math.min((current / max) * 100, 100);
+                        
+                        const barFill = document.getElementById("availableBarFill");
+                        const text = document.getElementById("availableText");
+                        
+                        barFill.style.width = percent + "%";
+                        text.textContent = current + " ml / " + max + " ml";
+                        
+                        // Red color when empty
+                        if (current === 0) {
+                            text.style.color = "var(--accent-red)";
+                            barFill.style.background = "var(--accent-red)";
+                        } else {
+                            text.style.color = "";
+                            barFill.style.background = "";
+                        }
+                    }
+                })
+                .catch((error) => {
+                    console.error("Failed to load available volume:", error);
+                });
+        }
+
+        function setAvailableVolume() {
+            const input = document.getElementById("availableVolumeInput");
+            const value = parseInt(input.value);
+            
+            if (isNaN(value) || value < 100 || value > 10000) {
+                showNotification("Value must be 100-10000 ml", "error");
+                return;
+            }
+            
+            fetch("api/set-available-volume", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: "value=" + value
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    if (data.success) {
+                        showNotification("Available volume set to " + value + " ml", "success");
+                        input.value = "";
+                        loadAvailableVolume();
+                    } else {
+                        showNotification("Failed: " + (data.error || "Unknown error"), "error");
+                    }
+                })
+                .catch(() => showNotification("Network error", "error"));
+        }
+
+        function refillAvailableVolume() {
+            if (!confirm("Refill available volume to max?")) return;
+            
+            fetch("api/refill-available-volume", { method: "POST" })
+                .then((response) => response.json())
+                .then((data) => {
+                    if (data.success) {
+                        showNotification("Available volume refilled", "success");
+                        loadAvailableVolume();
+                    } else {
+                        showNotification("Failed: " + (data.error || "Unknown error"), "error");
+                    }
+                })
+                .catch(() => showNotification("Network error", "error"));
+        }
+
+        // ============================================
+        // SET DAILY LIMIT FUNCTION
+        // ============================================
+        function setDailyLimit() {
+            const input = document.getElementById("dailyLimitInput");
+            const value = parseInt(input.value);
+            
+            if (isNaN(value) || value < 100 || value > 10000) {
+                showNotification("Value must be 100-10000 ml", "error");
+                return;
+            }
+            
+            fetch("api/set-fill-water-max", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: "value=" + value
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    if (data.success) {
+                        showNotification("Daily limit set to " + value + " ml", "success");
+                        input.value = "";
+                        loadDailyVolume();
+                    } else {
+                        showNotification("Failed: " + (data.error || "Unknown error"), "error");
+                    }
+                })
+                .catch(() => showNotification("Network error", "error"));
+        }
+
         // ============================================
         // LOGOUT
         // ============================================
@@ -1513,9 +1637,11 @@ const char* DASHBOARD_HTML = R"rawliteral(
         loadVolumePerSecond();
         loadStatistics();
         loadDailyVolume();
+        loadAvailableVolume();
 
         setInterval(loadSystemState, 30000);
         setInterval(loadDailyVolume, 10000);
+        setInterval(loadAvailableVolume, 10000);
     </script>
 </body>
 </html>

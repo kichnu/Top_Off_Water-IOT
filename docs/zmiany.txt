@@ -26,7 +26,55 @@ Przycisk z opisem 'Reset Daily Volume' nie zmienia swojej funkcjonalności.
 Przycisk z opisem 'Set Daily Volume' będzie nową funkcjonalnoćią umożliwiającą zmianę zmiennej '#define FILL_WATER_MAX' obecnie hardcodowanej w pliku src/algorithm/algorithm_config.h i zapisywaną w FRAM.
 Powyższe zmiany/ustawienia nie będą logowane do VPS!!! nic tu nie zmieniamy!
 
-Przeanalizuj dostępny kod i potwierdź czy wszystko jest logiczne lub zadaj pytania uzupełniające.
+Przeanalizuj dostępny kod i potwierdź czy wszystko jest logiczne lub zadaj pytania uzupełniające. Dopiero wtedy przejdziemy do kodowania.
+(nie załączam wszystkich plików z projektu, więć jak czegoś ci zabraknie to powiedz mi o tym)
 
+           // <div class="stats-columns">
+            //     <!-- Column 1: Load Statistics + errors -->
+            //     <div class="stat-column">
+            //         <button id="loadStatsBtn" class="btn btn-secondary btn-small" onclick="manualLoadStatistics()">Load Statistics</button>
+            //         <div class="stat-content">
+            //             <div class="stat-line">
+            //                 <span class="stat-label">Err activate:</span>
+            //                 <span class="stat-value" id="gap1Value">—</span>
+            //             </div>
+            //             <div class="stat-line">
+            //                 <span class="stat-label">Err deactivate:</span>
+            //                 <span class="stat-value" id="gap2Value">—</span>
+            //             </div>
+            //             <div class="stat-line">
+            //                 <span class="stat-label">Err pump:</span>
+            //                 <span class="stat-value" id="waterValue">—</span>
+            //             </div>
+            //         </div>
+            //     </div>
 
+            //     <!-- Column 2: Reset Statistics + last reset -->
+            //     <div class="stat-column">
+            //         <button id="resetStatsBtn" class="btn btn-secondary btn-small" onclick="resetStatistics()">Reset Statistics</button>
+            //         <div class="stat-content">
+            //             <div class="stat-line">
+            //                 <span class="stat-label">Last Reset:</span>
+            //                 <span class="stat-value neutral" id="resetTime">—</span>
+            //             </div>
+            //         </div>
+            //     </div>
 
+            //     <!-- Column 3: Reset Daily Volume + bar -->
+            //     <div class="stat-column">
+            //         <button id="resetDailyVolumeBtn" class="btn btn-secondary btn-small" onclick="resetDailyVolume()">Reset Daily Volume</button>
+            //         <div class="stat-content">
+            //             <div class="volume-indicator">
+            //                 <div class="volume-bar">
+            //                     <div class="volume-bar-fill" id="volumeBarFill"></div>
+            //                 </div>
+            //                 <div class="volume-text" id="volumeText">0 ml / 2000 ml</div>
+            //             </div>
+            //         </div>
+            //     </div>
+            // </div>
+
+                        // <div class="stat-line">
+                        //     <span class="stat-label">Last Reset:</span>
+                        //     <span class="stat-value neutral" id="resetTime">—</span>
+                        // </div>

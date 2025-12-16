@@ -21,6 +21,11 @@ WaterAlgorithm::WaterAlgorithm() {
     dailyVolumeML = 0;
     lastResetUTCDay = 0;
     resetPending = false;
+
+    // 🆕 NEW: Initialize Available Volume and Fill Water Max
+    availableVolumeMax = 10000;      // Default 10L
+    availableVolumeCurrent = 10000;
+    fillWaterMaxConfig = FILL_WATER_MAX;  // Default from config
     
     lastError = ERROR_NONE;
     errorSignalActive = false;
@@ -294,7 +299,6 @@ void WaterAlgorithm::update() {
     skip_date_check:
     uint32_t currentTime = getCurrentTimeSeconds();
     
-    // Execute delayed reset when pump finishes
     if (resetPending && !isPumpActive() && currentState == STATE_IDLE) {
         LOG_INFO("Executing delayed reset (pump finished)");
         
@@ -310,7 +314,6 @@ void WaterAlgorithm::update() {
     
     uint32_t stateElapsed = currentTime - stateStartTime;
 
-    // RESZTA FUNKCJI BEZ ZMIAN (switch statement itd.)
     switch (currentState) {
         case STATE_IDLE:
             break;
@@ -465,8 +468,8 @@ void WaterAlgorithm::update() {
                 logCycleComplete();
                 cycleLogged = true;
                 
-                if (dailyVolumeML > FILL_WATER_MAX) {
-                    LOG_ERROR("Daily limit exceeded! %dml > %dml", dailyVolumeML, FILL_WATER_MAX);
+                if (dailyVolumeML > fillWaterMaxConfig) {
+                    LOG_ERROR("Daily limit exceeded! %dml > %dml", dailyVolumeML, fillWaterMaxConfig);
                     currentCycle.error_code = ERROR_DAILY_LIMIT;
                     startErrorSignal(ERROR_DAILY_LIMIT);
                     currentState = STATE_ERROR;
@@ -528,6 +531,29 @@ void WaterAlgorithm::initDailyVolume() {
         lastResetUTCDay = currentUTCDay;
         saveDailyVolumeToFRAM(dailyVolumeML, lastResetUTCDay);
         LOG_INFO("✅ Initialized to 0ml");
+    }
+
+    // 🆕 NEW: Load Available Volume from FRAM
+    uint32_t loadedMax, loadedCurrent;
+    if (loadAvailableVolumeFromFRAM(loadedMax, loadedCurrent)) {
+        availableVolumeMax = loadedMax;
+        availableVolumeCurrent = loadedCurrent;
+        LOG_INFO("Available volume restored: %lu/%lu ml", availableVolumeCurrent, availableVolumeMax);
+    } else {
+        // First run - save defaults
+        saveAvailableVolumeToFRAM(availableVolumeMax, availableVolumeCurrent);
+        LOG_INFO("Available volume initialized with defaults: %lu ml", availableVolumeMax);
+    }
+    
+    // 🆕 NEW: Load Fill Water Max from FRAM
+    uint16_t loadedFillMax;
+    if (loadFillWaterMaxFromFRAM(loadedFillMax)) {
+        fillWaterMaxConfig = loadedFillMax;
+        LOG_INFO("Fill water max restored: %d ml", fillWaterMaxConfig);
+    } else {
+        // First run - save default
+        saveFillWaterMaxToFRAM(fillWaterMaxConfig);
+        LOG_INFO("Fill water max initialized with default: %d ml", fillWaterMaxConfig);
     }
     
     LOG_INFO("INIT COMPLETE:");
@@ -748,6 +774,16 @@ void WaterAlgorithm::logCycleComplete() {
     if (!saveDailyVolumeToFRAM(dailyVolumeML, lastResetUTCDay)) {
         LOG_WARNING("⚠️ Failed to save daily volume to FRAM");
     }
+
+        if (availableVolumeCurrent >= actualVolumeML) {
+        availableVolumeCurrent -= actualVolumeML;
+    } else {
+        availableVolumeCurrent = 0;
+    }
+    
+    if (!saveAvailableVolumeToFRAM(availableVolumeMax, availableVolumeCurrent)) {
+        LOG_WARNING("Failed to save available volume to FRAM");
+    }
     
     // Store in today's cycles (RAM)
     todayCycles.push_back(currentCycle);
@@ -788,7 +824,8 @@ void WaterAlgorithm::logCycleComplete() {
     LOG_INFO("TIME_GAP_1: %ds (fail=%d)", currentCycle.time_gap_1, gap1_increment);
     LOG_INFO("TIME_GAP_2: %ds (fail=%d)", currentCycle.time_gap_2, gap2_increment);
     LOG_INFO("WATER_TRIGGER_TIME: %ds (fail=%d)", currentCycle.water_trigger_time, water_increment);
-    LOG_INFO("Daily volume: %dml / %dml", dailyVolumeML, FILL_WATER_MAX);
+    LOG_INFO("Daily: %dml/%dml | Available: %lu/%lu ml", 
+             dailyVolumeML, fillWaterMaxConfig, availableVolumeCurrent, availableVolumeMax);
 }
 
 bool WaterAlgorithm::requestManualPump(uint16_t duration_ms) {
@@ -799,9 +836,9 @@ bool WaterAlgorithm::requestManualPump(uint16_t duration_ms) {
         return false;
     }
 
-    if (dailyVolumeML >= FILL_WATER_MAX) {
+    if (dailyVolumeML >= fillWaterMaxConfig) {
         LOG_ERROR("❌ Manual pump blocked: Daily limit reached (%dml / %dml)", 
-                  dailyVolumeML, FILL_WATER_MAX);
+                  dailyVolumeML, fillWaterMaxConfig);
         return false;  // Block manual pump when limit reached
     }
 
@@ -1012,29 +1049,53 @@ bool WaterAlgorithm::getErrorStatistics(uint16_t& gap1_sum, uint16_t& gap2_sum, 
     return success;
 }
 
-void WaterAlgorithm::addManualVolume(uint16_t volumeML) {
-    // 🆕 NEW: Add manual pump volume to daily total
-    dailyVolumeML += volumeML;
+// void WaterAlgorithm::addManualVolume(uint16_t volumeML) {
+//     // 🆕 NEW: Add manual pump volume to daily total
+//     dailyVolumeML += volumeML;
     
-    // Save to FRAM
-    if (!saveDailyVolumeToFRAM(dailyVolumeML, lastResetUTCDay)) {
-        LOG_WARNING("⚠️ Failed to save daily volume to FRAM after manual pump");
+//     // Save to FRAM
+//     if (!saveDailyVolumeToFRAM(dailyVolumeML, lastResetUTCDay)) {
+//         LOG_WARNING("⚠️ Failed to save daily volume to FRAM after manual pump");
+//     }
+    
+//     LOG_INFO("✅ Manual volume added: +%dml → Total: %dml / %dml", 
+//              volumeML, dailyVolumeML, FILL_WATER_MAX);
+    
+//     // 🆕 NEW: Check if limit exceeded after manual pump
+//     if (dailyVolumeML >= FILL_WATER_MAX) {
+//         LOG_ERROR("❌ Daily limit reached after manual pump: %dml / %dml", 
+//                   dailyVolumeML, FILL_WATER_MAX);
+        
+//         // Trigger error state
+//         currentCycle.error_code = ERROR_DAILY_LIMIT;
+//         startErrorSignal(ERROR_DAILY_LIMIT);
+//         currentState = STATE_ERROR;
+        
+//         LOG_ERROR("System entering ERROR state - press reset button to clear");
+//     }
+// }
+
+void WaterAlgorithm::addManualVolume(uint16_t volumeML) {
+    // 🆕 MODIFIED: Manual pump decreases ONLY available volume, NOT daily volume
+    
+    // Decrease available volume
+    if (availableVolumeCurrent >= volumeML) {
+        availableVolumeCurrent -= volumeML;
+    } else {
+        availableVolumeCurrent = 0;
     }
     
-    LOG_INFO("✅ Manual volume added: +%dml → Total: %dml / %dml", 
-             volumeML, dailyVolumeML, FILL_WATER_MAX);
+    // Save to FRAM
+    if (!saveAvailableVolumeToFRAM(availableVolumeMax, availableVolumeCurrent)) {
+        LOG_WARNING("Failed to save available volume to FRAM after manual pump");
+    }
     
-    // 🆕 NEW: Check if limit exceeded after manual pump
-    if (dailyVolumeML >= FILL_WATER_MAX) {
-        LOG_ERROR("❌ Daily limit reached after manual pump: %dml / %dml", 
-                  dailyVolumeML, FILL_WATER_MAX);
-        
-        // Trigger error state
-        currentCycle.error_code = ERROR_DAILY_LIMIT;
-        startErrorSignal(ERROR_DAILY_LIMIT);
-        currentState = STATE_ERROR;
-        
-        LOG_ERROR("System entering ERROR state - press reset button to clear");
+    LOG_INFO("Manual volume: %dml | Available: %lu/%lu ml", 
+             volumeML, availableVolumeCurrent, availableVolumeMax);
+    
+    // Check if available volume empty
+    if (availableVolumeCurrent == 0) {
+        LOG_WARNING("Available volume empty after manual pump!");
     }
 }
 
@@ -1108,6 +1169,65 @@ void WaterAlgorithm::checkResetButton() {
     }
     
     lastButtonState = currentButtonState;
+}
+
+// ===============================
+// 🆕 NEW: AVAILABLE VOLUME METHODS
+// ===============================
+
+void WaterAlgorithm::setAvailableVolume(uint32_t maxMl) {
+    if (maxMl < 100 || maxMl > 10000) {
+        LOG_ERROR("Invalid available volume: %lu (range: 100-10000ml)", maxMl);
+        return;
+    }
+    
+    availableVolumeMax = maxMl;
+    availableVolumeCurrent = maxMl;
+    
+    if (saveAvailableVolumeToFRAM(availableVolumeMax, availableVolumeCurrent)) {
+        LOG_INFO("Available volume set to %lu ml", maxMl);
+    }
+}
+
+void WaterAlgorithm::refillAvailableVolume() {
+    availableVolumeCurrent = availableVolumeMax;
+    
+    if (saveAvailableVolumeToFRAM(availableVolumeMax, availableVolumeCurrent)) {
+        LOG_INFO("Available volume refilled to %lu ml", availableVolumeMax);
+    }
+}
+
+uint32_t WaterAlgorithm::getAvailableVolumeMax() const {
+    return availableVolumeMax;
+}
+
+uint32_t WaterAlgorithm::getAvailableVolumeCurrent() const {
+    return availableVolumeCurrent;
+}
+
+bool WaterAlgorithm::isAvailableVolumeEmpty() const {
+    return availableVolumeCurrent == 0;
+}
+
+// ===============================
+// 🆕 NEW: CONFIGURABLE FILL_WATER_MAX METHODS
+// ===============================
+
+void WaterAlgorithm::setFillWaterMax(uint16_t maxMl) {
+    if (maxMl < 100 || maxMl > 10000) {
+        LOG_ERROR("Invalid fill water max: %d (range: 100-10000ml)", maxMl);
+        return;
+    }
+    
+    fillWaterMaxConfig = maxMl;
+    
+    if (saveFillWaterMaxToFRAM(fillWaterMaxConfig)) {
+        LOG_INFO("Fill water max set to %d ml", maxMl);
+    }
+}
+
+uint16_t WaterAlgorithm::getFillWaterMax() const {
+    return fillWaterMaxConfig;
 }
 
 bool WaterAlgorithm::resetDailyVolume() {

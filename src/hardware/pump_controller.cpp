@@ -120,10 +120,40 @@ uint32_t getPumpRemainingTime() {
     return (pumpDuration - elapsed) / 1000;
 }
 
+// void stopPump() {
+//     if (pumpRunning) {
+//         digitalWrite(PUMP_RELAY_PIN, HIGH);
+//         pumpRunning = false;
+//         LOG_INFO("Pump manually stopped");
+//     }
+// }
+
 void stopPump() {
     if (pumpRunning) {
         digitalWrite(PUMP_RELAY_PIN, HIGH);
         pumpRunning = false;
-        LOG_INFO("Pump manually stopped");
+        
+        // Calculate actual duration and volume
+        uint16_t actualDuration = (millis() - pumpStartTime) / 1000;
+        uint16_t volumeML = (uint16_t)round(actualDuration * currentPumpSettings.volumePerSecond);
+        
+        LOG_INFO("Pump manually stopped after %d seconds, estimated volume: %d ml", 
+                 actualDuration, volumeML);
+        
+        // Update available volume for manual pump
+        if (currentActionType == "MANUAL_NORMAL") {
+            waterAlgorithm.addManualVolume(volumeML);
+            LOG_INFO("MANUAL_NORMAL stopped early: %dml (available volume updated)", volumeML);
+        } else if (currentActionType == "MANUAL_EXTENDED") {
+            LOG_INFO("MANUAL_EXTENDED (calibration) stopped - NOT added to volume");
+        }
+        
+        // Log to VPS for non-AUTO actions
+        if (!currentActionType.startsWith("AUTO") && actualDuration > 0) {
+            uint32_t unixTime = getUnixTimestamp();
+            logEventToVPS(currentActionType, volumeML, unixTime);
+        }
+        
+        currentActionType = "";
     }
 }

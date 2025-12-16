@@ -57,6 +57,13 @@ private:
     uint32_t lastResetUTCDay;
     bool resetPending;
 
+    // 🆕 NEW: Available Volume tracking
+    uint32_t availableVolumeMax;      // Ustawiona pojemność zbiornika (ml)
+    uint32_t availableVolumeCurrent;  // Aktualna ilość wody w zbiorniku (ml)
+    
+    // 🆕 NEW: Configurable daily limit
+    uint16_t fillWaterMaxConfig;      // Konfigurowalny limit dzienny (zastępuje FILL_WATER_MAX)
+
     // Private methods
     void resetCycle();
     void calculateTimeGap1();
@@ -98,6 +105,17 @@ public:
     bool isInCycle() const;
     uint16_t getDailyVolume() const { return dailyVolumeML; }
     ErrorCode getLastError() const { return lastError; }
+
+    // 🆕 NEW: Available Volume methods
+    void setAvailableVolume(uint32_t maxMl);      // Ustawia max i resetuje current do max
+    void refillAvailableVolume();                  // Przywraca current do max
+    uint32_t getAvailableVolumeMax() const;
+    uint32_t getAvailableVolumeCurrent() const;
+    bool isAvailableVolumeEmpty() const;
+    
+    // 🆕 NEW: Configurable daily limit methods
+    void setFillWaterMax(uint16_t maxMl);
+    uint16_t getFillWaterMax() const;
 
     // Get recent cycles for debugging
     std::vector<PumpCycle> getRecentCycles(size_t count = 10);

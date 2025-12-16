@@ -697,3 +697,145 @@ bool loadDailyVolumeFromFRAM(uint16_t& dailyVolume, uint32_t& utcDay) {
     
     return true;
 }
+
+// ===============================
+// 🆕 NEW: AVAILABLE VOLUME MANAGEMENT
+// ===============================
+
+uint16_t calculateAvailableVolumeChecksum(uint32_t maxMl, uint32_t currentMl) {
+    uint16_t sum = 0;
+    sum += (maxMl >> 16) & 0xFFFF;
+    sum += maxMl & 0xFFFF;
+    sum += (currentMl >> 16) & 0xFFFF;
+    sum += currentMl & 0xFFFF;
+    return sum;
+}
+
+bool saveAvailableVolumeToFRAM(uint32_t maxMl, uint32_t currentMl) {
+    if (!framInitialized) {
+        LOG_ERROR("FRAM not initialized for available volume save");
+        return false;
+    }
+    
+    // Sanity check: max 10L = 10000ml
+    if (maxMl > 10000 || currentMl > 10000) {
+        LOG_ERROR("Invalid available volume: max=%lu, current=%lu (max 10000ml)", maxMl, currentMl);
+        return false;
+    }
+    
+    fram.write(FRAM_ADDR_AVAIL_VOL_MAX, (uint8_t*)&maxMl, 4);
+    fram.write(FRAM_ADDR_AVAIL_VOL_CURRENT, (uint8_t*)&currentMl, 4);
+    
+    uint16_t checksum = calculateAvailableVolumeChecksum(maxMl, currentMl);
+    fram.write(FRAM_ADDR_AVAIL_VOL_CHKSUM, (uint8_t*)&checksum, 2);
+    
+    // Verify write
+    uint32_t verifyMax = 0, verifyCurrent = 0;
+    fram.read(FRAM_ADDR_AVAIL_VOL_MAX, (uint8_t*)&verifyMax, 4);
+    fram.read(FRAM_ADDR_AVAIL_VOL_CURRENT, (uint8_t*)&verifyCurrent, 4);
+    
+    if (verifyMax != maxMl || verifyCurrent != currentMl) {
+        LOG_ERROR("FRAM available volume write verification failed!");
+        return false;
+    }
+    
+    LOG_INFO("Available volume saved to FRAM: %lu/%lu ml", currentMl, maxMl);
+    return true;
+}
+
+bool loadAvailableVolumeFromFRAM(uint32_t& maxMl, uint32_t& currentMl) {
+    if (!framInitialized) {
+        LOG_ERROR("FRAM not initialized for available volume load");
+        return false;
+    }
+    
+    fram.read(FRAM_ADDR_AVAIL_VOL_MAX, (uint8_t*)&maxMl, 4);
+    fram.read(FRAM_ADDR_AVAIL_VOL_CURRENT, (uint8_t*)&currentMl, 4);
+    
+    uint16_t calculatedChecksum = calculateAvailableVolumeChecksum(maxMl, currentMl);
+    uint16_t storedChecksum = 0;
+    fram.read(FRAM_ADDR_AVAIL_VOL_CHKSUM, (uint8_t*)&storedChecksum, 2);
+    
+    if (calculatedChecksum != storedChecksum) {
+        LOG_WARNING("Available volume checksum mismatch, using defaults");
+        maxMl = 10000;
+        currentMl = 10000;
+        return false;
+    }
+    
+    if (maxMl > 10000 || currentMl > 10000) {
+        LOG_WARNING("FRAM available volume out of range, using defaults");
+        maxMl = 10000;
+        currentMl = 10000;
+        return false;
+    }
+    
+    LOG_INFO("Available volume loaded from FRAM: %lu/%lu ml", currentMl, maxMl);
+    return true;
+}
+
+// ===============================
+// 🆕 NEW: CONFIGURABLE FILL_WATER_MAX
+// ===============================
+
+uint16_t calculateFillMaxChecksum(uint16_t fillWaterMax) {
+    return fillWaterMax ^ 0x5A5A;
+}
+
+bool saveFillWaterMaxToFRAM(uint16_t fillWaterMax) {
+    if (!framInitialized) {
+        LOG_ERROR("FRAM not initialized for fill water max save");
+        return false;
+    }
+    
+    // Sanity check: 100ml - 10000ml
+    if (fillWaterMax < 100 || fillWaterMax > 10000) {
+        LOG_ERROR("Invalid fill water max: %d (range: 100-10000ml)", fillWaterMax);
+        return false;
+    }
+    
+    fram.write(FRAM_ADDR_FILL_WATER_MAX, (uint8_t*)&fillWaterMax, 2);
+    
+    uint16_t checksum = calculateFillMaxChecksum(fillWaterMax);
+    fram.write(FRAM_ADDR_FILL_MAX_CHKSUM, (uint8_t*)&checksum, 2);
+    
+    // Verify write
+    uint16_t verifyValue = 0;
+    fram.read(FRAM_ADDR_FILL_WATER_MAX, (uint8_t*)&verifyValue, 2);
+    
+    if (verifyValue != fillWaterMax) {
+        LOG_ERROR("FRAM fill water max write verification failed!");
+        return false;
+    }
+    
+    LOG_INFO("Fill water max saved to FRAM: %d ml", fillWaterMax);
+    return true;
+}
+
+bool loadFillWaterMaxFromFRAM(uint16_t& fillWaterMax) {
+    if (!framInitialized) {
+        LOG_ERROR("FRAM not initialized for fill water max load");
+        return false;
+    }
+    
+    fram.read(FRAM_ADDR_FILL_WATER_MAX, (uint8_t*)&fillWaterMax, 2);
+    
+    uint16_t calculatedChecksum = calculateFillMaxChecksum(fillWaterMax);
+    uint16_t storedChecksum = 0;
+    fram.read(FRAM_ADDR_FILL_MAX_CHKSUM, (uint8_t*)&storedChecksum, 2);
+    
+    if (calculatedChecksum != storedChecksum) {
+        LOG_WARNING("Fill water max checksum mismatch, using default");
+        fillWaterMax = FILL_WATER_MAX;  // Default from algorithm_config.h
+        return false;
+    }
+    
+    if (fillWaterMax < 100 || fillWaterMax > 10000) {
+        LOG_WARNING("FRAM fill water max out of range: %d, using default", fillWaterMax);
+        fillWaterMax = FILL_WATER_MAX;
+        return false;
+    }
+    
+    LOG_INFO("Fill water max loaded from FRAM: %d ml", fillWaterMax);
+    return true;
+}

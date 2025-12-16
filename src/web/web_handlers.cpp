@@ -478,7 +478,7 @@ void handleGetDailyVolume(AsyncWebServerRequest* request) {
     String response = "{";
     response += "\"success\":true,";
     response += "\"daily_volume\":" + String(waterAlgorithm.getDailyVolume()) + ",";
-    response += "\"max_volume\":" + String(FILL_WATER_MAX) + ",";
+    response += "\"max_volume\":" + String(waterAlgorithm.getFillWaterMax()) + ",";
     response += "\"last_reset_utc_day\":" + String(waterAlgorithm.getLastResetUTCDay());
     response += "}";
     
@@ -520,4 +520,91 @@ void handleResetDailyVolume(AsyncWebServerRequest* request) {
                      "{\"success\":false,\"error\":\"Cannot reset while pump is active\"}");
         LOG_WARNING("⚠️ Daily volume reset blocked - pump is active");
     }
+}
+
+// ===============================
+// 🆕 NEW: AVAILABLE VOLUME HANDLERS
+// ===============================
+
+void handleGetAvailableVolume(AsyncWebServerRequest* request) {
+    String response = "{";
+    response += "\"success\":true,";
+    response += "\"max_ml\":" + String(waterAlgorithm.getAvailableVolumeMax()) + ",";
+    response += "\"current_ml\":" + String(waterAlgorithm.getAvailableVolumeCurrent()) + ",";
+    response += "\"is_empty\":" + String(waterAlgorithm.isAvailableVolumeEmpty() ? "true" : "false");
+    response += "}";
+    
+    request->send(200, "application/json", response);
+}
+
+void handleSetAvailableVolume(AsyncWebServerRequest* request) {
+    if (!request->hasParam("value", true)) {
+        request->send(400, "application/json", "{\"success\":false,\"error\":\"Missing value parameter\"}");
+        return;
+    }
+    
+    int value = request->getParam("value", true)->value().toInt();
+    
+    if (value < 100 || value > 10000) {
+        request->send(400, "application/json", "{\"success\":false,\"error\":\"Value must be 100-10000 ml\"}");
+        return;
+    }
+    
+    waterAlgorithm.setAvailableVolume(value);
+    
+    String response = "{";
+    response += "\"success\":true,";
+    response += "\"max_ml\":" + String(waterAlgorithm.getAvailableVolumeMax()) + ",";
+    response += "\"current_ml\":" + String(waterAlgorithm.getAvailableVolumeCurrent());
+    response += "}";
+    
+    request->send(200, "application/json", response);
+}
+
+void handleRefillAvailableVolume(AsyncWebServerRequest* request) {
+    waterAlgorithm.refillAvailableVolume();
+    
+    String response = "{";
+    response += "\"success\":true,";
+    response += "\"max_ml\":" + String(waterAlgorithm.getAvailableVolumeMax()) + ",";
+    response += "\"current_ml\":" + String(waterAlgorithm.getAvailableVolumeCurrent());
+    response += "}";
+    
+    request->send(200, "application/json", response);
+}
+
+// ===============================
+// 🆕 NEW: FILL WATER MAX HANDLERS
+// ===============================
+
+void handleGetFillWaterMax(AsyncWebServerRequest* request) {
+    String response = "{";
+    response += "\"success\":true,";
+    response += "\"fill_water_max\":" + String(waterAlgorithm.getFillWaterMax());
+    response += "}";
+    
+    request->send(200, "application/json", response);
+}
+
+void handleSetFillWaterMax(AsyncWebServerRequest* request) {
+    if (!request->hasParam("value", true)) {
+        request->send(400, "application/json", "{\"success\":false,\"error\":\"Missing value parameter\"}");
+        return;
+    }
+    
+    int value = request->getParam("value", true)->value().toInt();
+    
+    if (value < 100 || value > 10000) {
+        request->send(400, "application/json", "{\"success\":false,\"error\":\"Value must be 100-10000 ml\"}");
+        return;
+    }
+    
+    waterAlgorithm.setFillWaterMax(value);
+    
+    String response = "{";
+    response += "\"success\":true,";
+    response += "\"fill_water_max\":" + String(waterAlgorithm.getFillWaterMax());
+    response += "}";
+    
+    request->send(200, "application/json", response);
 }

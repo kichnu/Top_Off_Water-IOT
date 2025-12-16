@@ -37,6 +37,15 @@ void initWebServer() {
 
     server.on("/api/daily-volume", HTTP_GET, handleGetDailyVolume);
     server.on("/api/reset-daily-volume", HTTP_POST, handleResetDailyVolume);
+
+    // 🆕 NEW: Available Volume endpoints
+    server.on("/api/available-volume", HTTP_GET, handleGetAvailableVolume);
+    server.on("/api/set-available-volume", HTTP_POST, handleSetAvailableVolume);
+    server.on("/api/refill-available-volume", HTTP_POST, handleRefillAvailableVolume);
+    
+    // 🆕 NEW: Fill Water Max endpoints
+    server.on("/api/fill-water-max", HTTP_GET, handleGetFillWaterMax);
+    server.on("/api/set-fill-water-max", HTTP_POST, handleSetFillWaterMax);
     
     // 404 handler
     server.onNotFound([](AsyncWebServerRequest* request) {

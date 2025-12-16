@@ -36,4 +36,13 @@ void handleGetStatistics(AsyncWebServerRequest *request);
 void handleGetDailyVolume(AsyncWebServerRequest *request);
 void handleResetDailyVolume(AsyncWebServerRequest *request);
 
+// 🆕 NEW: Available Volume endpoints
+void handleGetAvailableVolume(AsyncWebServerRequest* request);
+void handleSetAvailableVolume(AsyncWebServerRequest* request);
+void handleRefillAvailableVolume(AsyncWebServerRequest* request);
+
+// 🆕 NEW: Fill Water Max endpoints
+void handleGetFillWaterMax(AsyncWebServerRequest* request);
+void handleSetFillWaterMax(AsyncWebServerRequest* request);
+
 #endif
